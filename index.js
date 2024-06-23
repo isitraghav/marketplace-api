@@ -35,18 +35,20 @@ app.all("/", function (req, res, next) {
 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  limit: 15,
+  limit: 60,
   standardHeaders: "draft-7",
   legacyHeaders: false,
 });
-
 // Apply the rate limiting middleware to all requests
 app.use(limiter);
 
-app.get("/feed", async (req, res) => {
+app.get("/feed/:from/:to", async (req, res) => {
   await supabase
     .from("list")
     .select("*")
+    .filter('approved', 'eq', true)
+    .range(req.params.from, req.params.to)
+    .limit(5)
     .then(({ data, error }) => {
       if (error) {
         console.log(error);
@@ -57,10 +59,10 @@ app.get("/feed", async (req, res) => {
 
 app.post("/list", async (req, res) => {
   const { name, description, price, owner, ship, image } = req.body;
-  if (!/^[a-zA-Z0-9_ ]*$/.test(name) || !/^[a-zA-Z0-9_ ]*$/.test(description)) {
-    return res.status(400).json({ error: "Query can only contain letters, numbers, spaces, and underscores" });
+  if (!/^(.|\s)*[a-zA-Z]+(.|\s)*$/.test(name)) {
+    return res.status(400).json({ error: "Query can only contain letters, numbers, spaces, and these special characters: /, -, +, _, ., @" });
   }
-  if (name.length < 3 || name.length > 50 || description.length > 500) {
+  if (name.length < 5 || name.length > 500 || description.length > 5000) {
     return res.status(400).json({ error: "Query must be between 3 and 50 characters long" });
   }
   if (name === "" || description === "") {
